@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+
+@layer base {
+  * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: #0f1a35;
+  }
+}
+
+@layer utilities {
+  .text-orange {
+    color: #ff6b35;
+  }
+  .bg-orange {
+    background-color: #ff6b35;
+  }
+  .border-orange {
+    border-color: #ff6b35;
+  }
+}
