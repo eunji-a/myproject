@@ -3,10 +3,9 @@ const multer  = require('multer');
 const ExcelJS = require('exceljs');
 const XLSX    = require('xlsx');
 const path    = require('path');
-const fs      = require('fs');
 
 const app    = express();
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -44,11 +43,9 @@ function getColor(lg, comp) {
 
 // ── 파일 처리 엔드포인트 ────────────────────────────────────────────────────
 app.post('/process', upload.single('file'), async (req, res) => {
-  const filePath = req.file.path;
-
   try {
-    // 1) xlsx로 원본 읽기
-    const xlsxWb  = XLSX.readFile(filePath);
+    // 1) xlsx로 원본 읽기 (메모리 버퍼에서 직접 읽기)
+    const xlsxWb  = XLSX.read(req.file.buffer, { type: 'buffer' });
     const sheet   = xlsxWb.Sheets[xlsxWb.SheetNames[0]];
     const allRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
 
@@ -155,12 +152,15 @@ app.post('/process', upload.single('file'), async (req, res) => {
   } catch (err) {
     console.error(err);
     if (!res.headersSent) res.status(500).json({ error: err.message });
-  } finally {
-    fs.unlink(filePath, () => {});
   }
 });
 
-const PORT = 3002;
-app.listen(PORT, () =>
-  console.log(`\n✅  Heatmap 서버 실행 중 → http://localhost:${PORT}\n`)
-);
+// 로컬 실행용 (Vercel 환경에서는 module.exports로 처리)
+if (process.env.VERCEL !== '1') {
+  const PORT = 3002;
+  app.listen(PORT, () =>
+    console.log(`\n✅  Heatmap 서버 실행 중 → http://localhost:${PORT}\n`)
+  );
+}
+
+module.exports = app;
