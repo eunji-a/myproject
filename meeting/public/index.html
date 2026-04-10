@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Visibility Gap 히트맵</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+      background: #f5f7fa;
+      color: #1a1a2e;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.10);
+      padding: 40px 48px;
+      width: 100%;
+      max-width: 720px;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: #1a1a2e;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 28px;
+    }
+
+    /* ── 업로드 영역 ── */
+    .upload-zone {
+      border: 2px dashed #c5cae9;
+      border-radius: 12px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      background: #fafbff;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: #4472C4;
+      background: #eef1fc;
+    }
+    .upload-zone svg { opacity: .45; margin-bottom: 12px; }
+    .upload-zone .hint { font-size: 14px; color: #666; }
+    .upload-zone .hint span { color: #4472C4; font-weight: 600; cursor: pointer; }
+    .upload-zone .filename {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #4472C4;
+      font-weight: 600;
+    }
+    input[type="file"] { display: none; }
+
+    /* ── 범례 ── */
+    .legend {
+      margin: 28px 0 0;
+      border: 1px solid #e8eaf0;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .legend-title {
+      background: #f0f2fa;
+      padding: 10px 16px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #555;
+      letter-spacing: .4px;
+    }
+    .legend-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 12px;
+      border-right: 1px solid #e8eaf0;
+      border-bottom: 1px solid #e8eaf0;
+      font-size: 12px;
+      color: #444;
+    }
+    .legend-item:nth-child(4n) { border-right: none; }
+    .swatch {
+      width: 18px; height: 18px;
+      border-radius: 4px;
+      border: 1px solid rgba(0,0,0,.12);
+      flex-shrink: 0;
+    }
+
+    /* ── 버튼 ── */
+    .btn {
+      margin-top: 28px;
+      width: 100%;
+      padding: 14px;
+      border-radius: 10px;
+      border: none;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .2s, opacity .2s, transform .1s;
+    }
+    .btn-primary {
+      background: #4472C4;
+      color: #fff;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: #3460b0;
+      transform: translateY(-1px);
+    }
+    .btn-primary:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+    }
+
+    /* ── 상태 메시지 ── */
+    #status {
+      margin-top: 16px;
+      min-height: 22px;
+      font-size: 13px;
+      text-align: center;
+    }
+    .status-ok    { color: #00a86b; font-weight: 600; }
+    .status-err   { color: #e03c3c; font-weight: 600; }
+    .status-info  { color: #4472C4; }
+
+    /* ── 스피너 ── */
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid #fff;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>Visibility Gap 히트맵 생성기</h1>
+  <p class="subtitle">엑셀을 업로드하면 LG / 경쟁사 값을 비교해 자동으로 색상을 칠한 파일을 반환합니다.</p>
+
+  <!-- 업로드 -->
+  <div class="upload-zone" id="dropZone">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4472C4" stroke-width="1.5">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="17 8 12 3 7 8"/>
+      <line x1="12" y1="3" x2="12" y2="15"/>
+    </svg>
+    <p class="hint">파일을 드래그하거나 <span id="browseBtn">클릭하여 선택</span></p>
+    <p class="filename" id="fileName">선택된 파일 없음</p>
+    <input type="file" id="fileInput" accept=".xlsx,.xls" />
+  </div>
+
+  <!-- 범례 -->
+  <div class="legend">
+    <div class="legend-title">색상 조건</div>
+    <div class="legend-grid">
+      <div class="legend-item"><div class="swatch" style="background:#F28E86"></div>빨강 — LG=0, 경쟁사&gt;0</div>
+      <div class="legend-item"><div class="swatch" style="background:#F1C232"></div>더진한노랑 — LG&lt;13.25</div>
+      <div class="legend-item"><div class="swatch" style="background:#FFD966"></div>진한노랑 — 13.25≤LG&lt;25.5</div>
+      <div class="legend-item"><div class="swatch" style="background:#FFE599"></div>노랑 — 25.5≤LG&lt;37.75</div>
+      <div class="legend-item"><div class="swatch" style="background:#FFF2CC"></div>연한노랑 — 37.75≤LG&lt;50</div>
+      <div class="legend-item"><div class="swatch" style="background:#FFFDE8"></div>더연한노랑 — LG≥50</div>
+      <div class="legend-item"><div class="swatch" style="background:#D9EAD3"></div>연한초록 — LG≥경쟁사</div>
+      <div class="legend-item"><div class="swatch" style="background:#D9D9D9"></div>회색 — 둘 다 0</div>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" id="processBtn" disabled>
+    히트맵 생성 &amp; 다운로드
+  </button>
+
+  <div id="status"></div>
+</div>
+
+<script>
+  const dropZone   = document.getElementById('dropZone');
+  const fileInput  = document.getElementById('fileInput');
+  const browseBtn  = document.getElementById('browseBtn');
+  const fileNameEl = document.getElementById('fileName');
+  const processBtn = document.getElementById('processBtn');
+  const statusEl   = document.getElementById('status');
+
+  let selectedFile = null;
+
+  browseBtn.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('click', e => { if (e.target !== browseBtn) fileInput.click(); });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) setFile(fileInput.files[0]);
+  });
+
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+  });
+
+  function setFile(f) {
+    if (!/\.(xlsx|xls)$/i.test(f.name)) {
+      setStatus('엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.', 'err');
+      return;
+    }
+    selectedFile    = f;
+    fileNameEl.textContent = f.name;
+    processBtn.disabled    = false;
+    setStatus('');
+  }
+
+  processBtn.addEventListener('click', async () => {
+    if (!selectedFile) return;
+
+    processBtn.disabled = true;
+    processBtn.innerHTML = '<span class="spinner"></span>처리 중…';
+    setStatus('파일 분석 및 색상 적용 중입니다…', 'info');
+
+    try {
+      const fd = new FormData();
+      fd.append('file', selectedFile);
+
+      const resp = await fetch('/process', { method: 'POST', body: fd });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: resp.statusText }));
+        throw new Error(err.error || '서버 오류');
+      }
+
+      const blob = await resp.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = 'heatmap_result.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+
+      setStatus('✅ 다운로드 완료!', 'ok');
+    } catch (err) {
+      setStatus('오류: ' + err.message, 'err');
+    } finally {
+      processBtn.disabled = false;
+      processBtn.textContent = '히트맵 생성 & 다운로드';
+    }
+  });
+
+  function setStatus(msg, type = '') {
+    statusEl.textContent  = msg;
+    statusEl.className    = type ? 'status-' + type : '';
+  }
+</script>
+</body>
+</html>
