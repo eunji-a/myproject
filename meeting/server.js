@@ -52,21 +52,35 @@ app.post('/process', upload.single('file'), async (req, res) => {
     const maxCols = Math.max(...allRows.map(r => (r || []).length));
     const pad = r => { const a = [...(r || [])]; while (a.length < maxCols) a.push(null); return a; };
 
-    // 2) 헤더 2행 + 데이터 3행 그룹
+    // 2) 헤더 2행 + 행 타입별 분류 (col[3] 기준)
     const hdr1     = pad(allRows[0]);
     const hdr2     = pad(allRows[1]);
     const dataRows = allRows.slice(2);
 
     const DATA_COL = 4; // 국가값 시작 컬럼(0-based)
 
+    // col[3] 값으로 행 타입 식별 후 Gap 기준으로 그룹핑
+    const typedRows = dataRows.map((r, i) => {
+      const row = pad(r);
+      const label = String(row[3] || '');
+      let type = 'other';
+      if (label.includes('Gap'))        type = 'gap';
+      else if (label.includes('Max'))   type = 'max';
+      else if (label.includes('LG') || label.includes('평균')) type = 'lg';
+      return { type, row, absIdx: i };
+    });
+
     const groups = [];
-    for (let i = 0; i < dataRows.length; i += 3) {
+    typedRows.forEach(({ type, row, absIdx }) => {
+      if (type !== 'gap') return;
+      const maxEntry = typedRows.find(t => t.type === 'max' && t.absIdx === absIdx + 1);
+      const lgEntry  = typedRows.find(t => t.type === 'lg'  && t.absIdx === absIdx + 2);
       groups.push({
-        gapRow: pad(dataRows[i]),
-        maxRow: pad(dataRows[i + 1]),
-        lgRow:  pad(dataRows[i + 2]),
+        gapRow: row,
+        maxRow: maxEntry ? maxEntry.row : pad([]),
+        lgRow:  lgEntry  ? lgEntry.row  : pad([]),
       });
-    }
+    });
 
     // 3) ExcelJS로 결과 작성
     const wb = new ExcelJS.Workbook();
@@ -82,15 +96,15 @@ app.post('/process', upload.single('file'), async (req, res) => {
     const fillSolid = argb => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
 
     // 헤더 행
-    [hdr1, hdr2].forEach((rowData, idx) => {
+    [hdr1, hdr2].forEach(rowData => {
       const r = ws.addRow(rowData);
-      r.font = { bold: true, size: 10 };
-      r.eachCell({ includeEmpty: true }, cell => {
-        cell.fill   = fillSolid('FF4472C4');
-        cell.font   = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
-        cell.border = borderAll;
+      for (let colNum = 1; colNum <= maxCols; colNum++) {
+        const cell = r.getCell(colNum);
+        cell.fill      = fillSolid('FF4472C4');
+        cell.font      = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
+        cell.border    = borderAll;
         cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-      });
+      }
     });
 
     // 데이터 행 (Visibility Gap 행만)
@@ -105,30 +119,27 @@ app.post('/process', upload.single('file'), async (req, res) => {
       const r = ws.addRow(displayVals);
       r.height = 18;
 
-      r.eachCell({ includeEmpty: true }, (cell, colNum) => {
-        const idx = colNum - 1; // 0-based
+      // eachCell 대신 명시적 루프 — 빈 열도 빠짐없이 처리
+      for (let colNum = 1; colNum <= maxCols; colNum++) {
+        const cell = r.getCell(colNum);
+        const idx  = colNum - 1; // 0-based
 
         if (idx < DATA_COL) {
-          // 레이블 셀 — 흰 배경
           cell.fill = fillSolid('FFFFFFFF');
           cell.font = { bold: idx === 0 || idx === 1, size: 10 };
         } else {
           const rawVal = gapRow[idx];
-          let color;
+          const color  = (rawVal === null || rawVal === undefined)
+            ? C.white
+            : getColor(lgRow[idx], maxRow[idx]);
 
-          if (rawVal === null || rawVal === undefined) {
-            color = C.white;
-          } else {
-            color = getColor(lgRow[idx], maxRow[idx]);
-          }
-
-          cell.fill = fillSolid(color);
-          cell.font = { size: 10 };
+          cell.fill      = fillSolid(color);
+          cell.font      = { size: 10 };
           cell.alignment = { horizontal: 'center', vertical: 'middle' };
         }
 
         cell.border = borderAll;
-      });
+      }
     });
 
     // 열 너비
