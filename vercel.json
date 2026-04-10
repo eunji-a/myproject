@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "meeting/server.js",
+      "use": "@vercel/node",
+      "config": { "includeFiles": ["meeting/public/**"] }
+    }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "/meeting/server.js" }
+  ]
+}
