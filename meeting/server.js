@@ -157,14 +157,14 @@ app.post('/process', upload.single('file'), async (req, res) => {
     // 상단 2행 고정
     ws.views = [{ state: 'frozen', xSplit: 0, ySplit: 2 }];
 
-    // 4) 응답
+    // 4) 응답 (Vercel 서버리스 환경: 스트리밍 대신 버퍼로 한 번에 전송)
+    const buffer = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition',
       'attachment; filename="heatmap_result.xlsx"');
-
-    await wb.xlsx.write(res);
-    res.end();
+    res.setHeader('Content-Length', buffer.length);
+    res.send(buffer);
   } catch (err) {
     console.error(err);
     if (!res.headersSent) res.status(500).json({ error: err.message });
