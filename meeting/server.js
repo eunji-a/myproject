@@ -62,11 +62,11 @@ app.post('/process', upload.single('file'), async (req, res) => {
     // col[3] 값으로 행 타입 식별 후 Gap 기준으로 그룹핑
     const typedRows = dataRows.map((r, i) => {
       const row = pad(r);
-      const label = String(row[3] || '');
+      const label = String(row[3] || '').toLowerCase();
       let type = 'other';
-      if (label.includes('Gap'))        type = 'gap';
-      else if (label.includes('Max'))   type = 'max';
-      else if (label.includes('LG') || label.includes('평균')) type = 'lg';
+      if (label.includes('gap'))        type = 'gap';
+      else if (label.includes('max'))   type = 'max';
+      else if (label.includes('lg') || label.includes('평균')) type = 'lg';
       return { type, row, absIdx: i };
     });
 
