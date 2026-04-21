@@ -171,6 +171,60 @@ app.post('/process', upload.single('file'), async (req, res) => {
   }
 });
 
+// ── 디버그 엔드포인트 ────────────────────────────────────────────────────────
+app.post('/debug', upload.single('file'), async (req, res) => {
+  try {
+    const xlsxWb  = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheet   = xlsxWb.Sheets[xlsxWb.SheetNames[0]];
+    const allRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+
+    const maxCols = Math.max(...allRows.map(r => (r || []).length));
+    const pad = r => { const a = [...(r || [])]; while (a.length < maxCols) a.push(null); return a; };
+
+    function detectRow(row) {
+      for (let col = 2; col <= Math.min(5, row.length - 1); col++) {
+        const v = String(row[col] || '').toLowerCase();
+        if (v.includes('gap'))                      return { type: 'gap', dataCol: col + 1, labelCol: col };
+        if (v.includes('max'))                      return { type: 'max', dataCol: col + 1, labelCol: col };
+        if (v.includes('lg') || v.includes('평균')) return { type: 'lg',  dataCol: col + 1, labelCol: col };
+      }
+      return { type: 'other', dataCol: 4, labelCol: -1 };
+    }
+
+    const preview = allRows.slice(0, 10).map((r, i) => {
+      const row = pad(r);
+      const { type, dataCol, labelCol } = detectRow(row);
+      return {
+        rowIndex: i,
+        type,
+        labelCol,
+        dataCol,
+        cols_0_to_6: row.slice(0, 7),
+      };
+    });
+
+    const dataRows = allRows.slice(2);
+    const typedRows = dataRows.map((r, i) => {
+      const row = pad(r);
+      const { type, dataCol } = detectRow(row);
+      return { type, absIdx: i, dataCol, col2: row[2], col3: row[3], col4: row[4] };
+    });
+    const gapCount = typedRows.filter(t => t.type === 'gap').length;
+    const maxCount = typedRows.filter(t => t.type === 'max').length;
+    const lgCount  = typedRows.filter(t => t.type === 'lg').length;
+
+    res.json({
+      totalRows: allRows.length,
+      maxCols,
+      first10Rows: preview,
+      typedSummary: { gap: gapCount, max: maxCount, lg: lgCount, other: typedRows.length - gapCount - maxCount - lgCount },
+      first5TypedRows: typedRows.slice(0, 5),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 로컬 실행용 (Vercel 환경에서는 module.exports로 처리)
 if (process.env.VERCEL !== '1') {
   const PORT = 3002;
