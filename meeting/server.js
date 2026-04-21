@@ -70,16 +70,17 @@ app.post('/process', upload.single('file'), async (req, res) => {
       return { type, row, absIdx: i };
     });
 
-    const groups = [];
-    typedRows.forEach(({ type, row, absIdx }) => {
-      if (type !== 'gap') return;
-      const maxEntry = typedRows.find(t => t.type === 'max' && t.absIdx === absIdx + 1);
-      const lgEntry  = typedRows.find(t => t.type === 'lg'  && t.absIdx === absIdx + 2);
-      groups.push({
-        gapRow: row,
+    const gapEntries = typedRows.filter(t => t.type === 'gap');
+    const groups = gapEntries.map((gapEntry, i) => {
+      const nextGapAbsIdx = i + 1 < gapEntries.length ? gapEntries[i + 1].absIdx : Infinity;
+      const inRange = t => t.absIdx > gapEntry.absIdx && t.absIdx < nextGapAbsIdx;
+      const maxEntry = typedRows.find(t => t.type === 'max' && inRange(t));
+      const lgEntry  = typedRows.find(t => t.type === 'lg'  && inRange(t));
+      return {
+        gapRow: gapEntry.row,
         maxRow: maxEntry ? maxEntry.row : pad([]),
         lgRow:  lgEntry  ? lgEntry.row  : pad([]),
-      });
+      };
     });
 
     // 3) ExcelJS로 결과 작성
