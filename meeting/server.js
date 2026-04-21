@@ -57,17 +57,21 @@ app.post('/process', upload.single('file'), async (req, res) => {
     const hdr2     = pad(allRows[1]);
     const dataRows = allRows.slice(2);
 
-    const DATA_COL = 4; // 국가값 시작 컬럼(0-based)
+    // 라벨 열을 동적으로 찾아 행 타입과 데이터 시작 컬럼을 함께 반환
+    function detectRow(row) {
+      for (let col = 2; col <= Math.min(5, row.length - 1); col++) {
+        const v = String(row[col] || '').toLowerCase();
+        if (v.includes('gap'))                        return { type: 'gap', dataCol: col + 1 };
+        if (v.includes('max'))                        return { type: 'max', dataCol: col + 1 };
+        if (v.includes('lg') || v.includes('평균'))   return { type: 'lg',  dataCol: col + 1 };
+      }
+      return { type: 'other', dataCol: 4 };
+    }
 
-    // col[3] 값으로 행 타입 식별 후 Gap 기준으로 그룹핑
     const typedRows = dataRows.map((r, i) => {
       const row = pad(r);
-      const label = String(row[3] || '').toLowerCase();
-      let type = 'other';
-      if (label.includes('gap'))        type = 'gap';
-      else if (label.includes('max'))   type = 'max';
-      else if (label.includes('lg') || label.includes('평균')) type = 'lg';
-      return { type, row, absIdx: i };
+      const { type, dataCol } = detectRow(row);
+      return { type, row, absIdx: i, dataCol };
     });
 
     const gapEntries = typedRows.filter(t => t.type === 'gap');
@@ -77,9 +81,10 @@ app.post('/process', upload.single('file'), async (req, res) => {
       const maxEntry = typedRows.find(t => t.type === 'max' && inRange(t));
       const lgEntry  = typedRows.find(t => t.type === 'lg'  && inRange(t));
       return {
-        gapRow: gapEntry.row,
-        maxRow: maxEntry ? maxEntry.row : pad([]),
-        lgRow:  lgEntry  ? lgEntry.row  : pad([]),
+        gapRow:  gapEntry.row,
+        maxRow:  maxEntry ? maxEntry.row : pad([]),
+        lgRow:   lgEntry  ? lgEntry.row  : pad([]),
+        dataCol: gapEntry.dataCol,
       };
     });
 
@@ -109,9 +114,9 @@ app.post('/process', upload.single('file'), async (req, res) => {
     });
 
     // 데이터 행 (Visibility Gap 행만)
-    groups.forEach(({ gapRow, maxRow, lgRow }, groupIdx) => {
+    groups.forEach(({ gapRow, maxRow, lgRow, dataCol }) => {
       const displayVals = gapRow.map((val, idx) => {
-        if (idx < DATA_COL) return val;
+        if (idx < dataCol) return val;
         if (val === null || val === undefined) return '-';
         if (typeof val === 'number') return Math.round(val * 100) / 100;
         return val;
@@ -120,12 +125,11 @@ app.post('/process', upload.single('file'), async (req, res) => {
       const r = ws.addRow(displayVals);
       r.height = 18;
 
-      // eachCell 대신 명시적 루프 — 빈 열도 빠짐없이 처리
       for (let colNum = 1; colNum <= maxCols; colNum++) {
         const cell = r.getCell(colNum);
         const idx  = colNum - 1; // 0-based
 
-        if (idx < DATA_COL) {
+        if (idx < dataCol) {
           cell.fill = fillSolid('FFFFFFFF');
           cell.font = { bold: idx === 0 || idx === 1, size: 10 };
         } else {
