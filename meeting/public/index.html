@@ -221,7 +221,7 @@
       <div class="legend-item">
         <div class="swatch" data-key="red" style="background:#F28E86" title="클릭하여 색상 변경"></div>
         <input type="color" class="color-picker" data-key="red" value="#F28E86">
-        빨강 — LG≤<input type="number" class="threshold-input" data-key="r" value="0" min="0" max="100" step="0.25" title="기준값 변경">, 경쟁사&gt;0
+        빨강 — LG≤<input type="number" class="threshold-input" data-key="r" value="0" min="0" max="100" step="0.25" title="기준값 변경">, 경쟁사&gt;<input type="number" class="threshold-input" data-key="rc" value="0" min="0" max="100" step="0.25" title="기준값 변경">
       </div>
       <div class="legend-item">
         <div class="swatch" data-key="darkerYellow" style="background:#F1C232" title="클릭하여 색상 변경"></div>
@@ -251,7 +251,7 @@
       <div class="legend-item">
         <div class="swatch" data-key="green" style="background:#D9EAD3" title="클릭하여 색상 변경"></div>
         <input type="color" class="color-picker" data-key="green" value="#D9EAD3">
-        연한초록 — LG≥경쟁사×<input type="number" class="threshold-input" data-key="g" value="100" min="0" max="200" step="1" title="기준값 변경">%
+        연한초록 — LG≥경쟁사×<input type="number" class="threshold-input" data-key="g" value="100" min="0" max="200" step="1" title="기준값 변경">%, LG≥<input type="number" class="threshold-input" data-key="lg_g" value="0" min="0" max="100" step="0.25" title="기준값 변경">
       </div>
       <div class="legend-item">
         <div class="swatch" data-key="gray" style="background:#D9D9D9" title="클릭하여 색상 변경"></div>
@@ -302,7 +302,7 @@
   });
 
   // ── 커스텀 기준값 관리 ───────────────────────────────────────────────────
-  const DEFAULT_THRESHOLDS = { t1: 13.25, t2: 25.5, t3: 37.75, t4: 50, r: 0, g: 100 };
+  const DEFAULT_THRESHOLDS = { t1: 13.25, t2: 25.5, t3: 37.75, t4: 50, r: 0, rc: 0, g: 100, lg_g: 0 };
   const currentThresholds  = { ...DEFAULT_THRESHOLDS };
 
   document.querySelectorAll('.threshold-input').forEach(input => {
