@@ -10,7 +10,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── 색상 정의 (ExcelJS ARGB) ─────────────────────────────────────────────────
-const C = {
+const DEFAULT_C = {
   red:           'FFF28E86',  // 빨강    (#F28E86) : LG=0, 경쟁사>0
   darkerYellow:  'FFF1C232',  // 더진한노랑 (#F1C232) : 0 < LG < 13.25
   darkYellow:    'FFFFD966',  // 진한노랑  (#FFD966) : 13.25 ≤ LG < 25.5
@@ -22,7 +22,11 @@ const C = {
   white:         'FFFFFFFF',  // 흰색           : 값 없음
 };
 
-function getColor(lg, comp) {
+function hexToArgb(hex) {
+  return 'FF' + hex.replace('#', '').toUpperCase();
+}
+
+function getColor(lg, comp, C) {
   if (lg === null || lg === undefined || comp === null || comp === undefined)
     return C.white;
 
@@ -44,6 +48,16 @@ function getColor(lg, comp) {
 // ── 파일 처리 엔드포인트 ────────────────────────────────────────────────────
 app.post('/process', upload.single('file'), async (req, res) => {
   try {
+    // 커스텀 색상 병합 (프론트에서 JSON 문자열로 전달)
+    const C = { ...DEFAULT_C };
+    if (req.body && req.body.colors) {
+      try {
+        const customHex = JSON.parse(req.body.colors);
+        for (const [key, hex] of Object.entries(customHex)) {
+          if (key in C) C[key] = hexToArgb(hex);
+        }
+      } catch {}
+    }
     // 1) xlsx로 원본 읽기 (메모리 버퍼에서 직접 읽기)
     const xlsxWb  = XLSX.read(req.file.buffer, { type: 'buffer' });
     const sheet   = xlsxWb.Sheets[xlsxWb.SheetNames[0]];
@@ -136,7 +150,7 @@ app.post('/process', upload.single('file'), async (req, res) => {
           const rawVal = gapRow[idx];
           const color  = (rawVal === null || rawVal === undefined)
             ? C.white
-            : getColor(lgRow[idx], maxRow[idx]);
+            : getColor(lgRow[idx], maxRow[idx], C);
 
           cell.fill      = fillSolid(color);
           cell.font      = { size: 10 };

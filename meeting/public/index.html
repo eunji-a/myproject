@@ -78,7 +78,24 @@
       font-weight: 700;
       color: #555;
       letter-spacing: .4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
+    .legend-hint { font-weight: 400; color: #999; font-size: 11px; }
+    .btn-reset-colors {
+      margin-left: auto;
+      padding: 2px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      background: #fff;
+      border: 1px solid #c5cae9;
+      border-radius: 5px;
+      cursor: pointer;
+      color: #4472C4;
+      transition: background .15s;
+    }
+    .btn-reset-colors:hover { background: #eef1fc; }
     .legend-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -100,7 +117,11 @@
       border-radius: 4px;
       border: 1px solid rgba(0,0,0,.12);
       flex-shrink: 0;
+      cursor: pointer;
+      transition: box-shadow .15s;
     }
+    .swatch:hover { box-shadow: 0 0 0 2px #4472C4; }
+    input.color-picker { display: none; }
 
     /* ── 버튼 ── */
     .btn {
@@ -171,16 +192,52 @@
 
   <!-- 범례 -->
   <div class="legend">
-    <div class="legend-title">색상 조건</div>
+    <div class="legend-title">
+      색상 조건
+      <span class="legend-hint">스와치 클릭 시 색상 변경 가능</span>
+      <button class="btn-reset-colors" id="resetColorsBtn">초기화</button>
+    </div>
     <div class="legend-grid">
-      <div class="legend-item"><div class="swatch" style="background:#F28E86"></div>빨강 — LG=0, 경쟁사&gt;0</div>
-      <div class="legend-item"><div class="swatch" style="background:#F1C232"></div>더진한노랑 — LG&lt;13.25</div>
-      <div class="legend-item"><div class="swatch" style="background:#FFD966"></div>진한노랑 — 13.25≤LG&lt;25.5</div>
-      <div class="legend-item"><div class="swatch" style="background:#FFE599"></div>노랑 — 25.5≤LG&lt;37.75</div>
-      <div class="legend-item"><div class="swatch" style="background:#FFF2CC"></div>연한노랑 — 37.75≤LG&lt;50</div>
-      <div class="legend-item"><div class="swatch" style="background:#FFFDE8"></div>더연한노랑 — LG≥50</div>
-      <div class="legend-item"><div class="swatch" style="background:#D9EAD3"></div>연한초록 — LG≥경쟁사</div>
-      <div class="legend-item"><div class="swatch" style="background:#D9D9D9"></div>회색 — 둘 다 0</div>
+      <div class="legend-item">
+        <div class="swatch" data-key="red" style="background:#F28E86" title="클릭하여 색상 변경"></div>
+        <input type="color" class="color-picker" data-key="red" value="#F28E86">
+        빨강 — LG=0, 경쟁사&gt;0
+      </div>
+      <div class="legend-item">
+        <div class="swatch" data-key="darkerYellow" style="background:#F1C232" title="클릭하여 색상 변경"></div>
+        <input type="color" class="color-picker" data-key="darkerYellow" value="#F1C232">
+        더진한노랑 — LG&lt;13.25
+      </div>
+      <div class="legend-item">
+        <div class="swatch" data-key="darkYellow" style="background:#FFD966" title="클릭하여 색상 변경"></div>
+        <input type="color" class="color-picker" data-key="darkYellow" value="#FFD966">
+        진한노랑 — 13.25≤LG&lt;25.5
+      </div>
+      <div class="legend-item">
+        <div class="swatch" data-key="yellow" style="background:#FFE599" title="클릭하여 색상 변경"></div>
+        <input type="color" class="color-picker" data-key="yellow" value="#FFE599">
+        노랑 — 25.5≤LG&lt;37.75
+      </div>
+      <div class="legend-item">
+        <div class="swatch" data-key="lightYellow" style="background:#FFF2CC" title="클릭하여 색상 변경"></div>
+        <input type="color" class="color-picker" data-key="lightYellow" value="#FFF2CC">
+        연한노랑 — 37.75≤LG&lt;50
+      </div>
+      <div class="legend-item">
+        <div class="swatch" data-key="lighterYellow" style="background:#FFFDE8" title="클릭하여 색상 변경"></div>
+        <input type="color" class="color-picker" data-key="lighterYellow" value="#FFFDE8">
+        더연한노랑 — LG≥50
+      </div>
+      <div class="legend-item">
+        <div class="swatch" data-key="green" style="background:#D9EAD3" title="클릭하여 색상 변경"></div>
+        <input type="color" class="color-picker" data-key="green" value="#D9EAD3">
+        연한초록 — LG≥경쟁사
+      </div>
+      <div class="legend-item">
+        <div class="swatch" data-key="gray" style="background:#D9D9D9" title="클릭하여 색상 변경"></div>
+        <input type="color" class="color-picker" data-key="gray" value="#D9D9D9">
+        회색 — 둘 다 0
+      </div>
     </div>
   </div>
 
@@ -200,6 +257,38 @@
   const statusEl   = document.getElementById('status');
 
   let selectedFile = null;
+
+  // ── 커스텀 색상 관리 ──────────────────────────────────────────────────────
+  const DEFAULT_COLORS = {
+    red:           '#F28E86',
+    darkerYellow:  '#F1C232',
+    darkYellow:    '#FFD966',
+    yellow:        '#FFE599',
+    lightYellow:   '#FFF2CC',
+    lighterYellow: '#FFFDE8',
+    green:         '#D9EAD3',
+    gray:          '#D9D9D9',
+  };
+  const currentColors = { ...DEFAULT_COLORS };
+
+  document.querySelectorAll('.swatch[data-key]').forEach(swatch => {
+    const key    = swatch.dataset.key;
+    const picker = document.querySelector(`.color-picker[data-key="${key}"]`);
+    swatch.addEventListener('click', () => picker.click());
+    picker.addEventListener('input', e => {
+      currentColors[key] = e.target.value;
+      swatch.style.background = e.target.value;
+    });
+  });
+
+  document.getElementById('resetColorsBtn').addEventListener('click', () => {
+    Object.assign(currentColors, DEFAULT_COLORS);
+    document.querySelectorAll('.swatch[data-key]').forEach(swatch => {
+      const key = swatch.dataset.key;
+      swatch.style.background = DEFAULT_COLORS[key];
+      document.querySelector(`.color-picker[data-key="${key}"]`).value = DEFAULT_COLORS[key];
+    });
+  });
 
   browseBtn.addEventListener('click', () => fileInput.click());
   dropZone.addEventListener('click', e => { if (e.target !== browseBtn) fileInput.click(); });
@@ -237,6 +326,7 @@
     try {
       const fd = new FormData();
       fd.append('file', selectedFile);
+      fd.append('colors', JSON.stringify(currentColors));
 
       const resp = await fetch('/process', { method: 'POST', body: fd });
 
