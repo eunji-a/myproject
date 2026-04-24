@@ -22,11 +22,13 @@ const DEFAULT_C = {
   white:         'FFFFFFFF',  // 흰색           : 값 없음
 };
 
+const DEFAULT_T = { t1: 13.25, t2: 25.5, t3: 37.75, t4: 50 };
+
 function hexToArgb(hex) {
   return 'FF' + hex.replace('#', '').toUpperCase();
 }
 
-function getColor(lg, comp, C) {
+function getColor(lg, comp, C, T) {
   if (lg === null || lg === undefined || comp === null || comp === undefined)
     return C.white;
 
@@ -38,11 +40,11 @@ function getColor(lg, comp, C) {
   if (lg >= comp)             return C.green;
 
   // LG < 경쟁사 구간별
-  if (lg <  13.25) return C.darkerYellow;
-  if (lg <  25.5)  return C.darkYellow;
-  if (lg <  37.75) return C.yellow;
-  if (lg <  50)    return C.lightYellow;
-  return C.lighterYellow; // lg >= 50
+  if (lg < T.t1) return C.darkerYellow;
+  if (lg < T.t2) return C.darkYellow;
+  if (lg < T.t3) return C.yellow;
+  if (lg < T.t4) return C.lightYellow;
+  return C.lighterYellow;
 }
 
 // ── 파일 처리 엔드포인트 ────────────────────────────────────────────────────
@@ -55,6 +57,17 @@ app.post('/process', upload.single('file'), async (req, res) => {
         const customHex = JSON.parse(req.body.colors);
         for (const [key, hex] of Object.entries(customHex)) {
           if (key in C) C[key] = hexToArgb(hex);
+        }
+      } catch {}
+    }
+
+    // 커스텀 기준값 병합
+    const T = { ...DEFAULT_T };
+    if (req.body && req.body.thresholds) {
+      try {
+        const customT = JSON.parse(req.body.thresholds);
+        for (const [key, val] of Object.entries(customT)) {
+          if (key in T) T[key] = Number(val);
         }
       } catch {}
     }
@@ -150,7 +163,7 @@ app.post('/process', upload.single('file'), async (req, res) => {
           const rawVal = gapRow[idx];
           const color  = (rawVal === null || rawVal === undefined)
             ? C.white
-            : getColor(lgRow[idx], maxRow[idx], C);
+            : getColor(lgRow[idx], maxRow[idx], C, T);
 
           cell.fill      = fillSolid(color);
           cell.font      = { size: 10 };

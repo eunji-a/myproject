@@ -122,6 +122,26 @@
     }
     .swatch:hover { box-shadow: 0 0 0 2px #4472C4; }
     input.color-picker { display: none; }
+    .threshold-input {
+      width: 46px;
+      border: none;
+      border-bottom: 1.5px dashed #4472C4;
+      background: transparent;
+      text-align: center;
+      font-size: 12px;
+      color: #4472C4;
+      font-weight: 600;
+      padding: 0 2px;
+      cursor: text;
+      font-family: inherit;
+    }
+    .threshold-input:focus {
+      outline: none;
+      border-bottom: 2px solid #4472C4;
+      background: #eef1fc;
+      border-radius: 3px 3px 0 0;
+    }
+    .threshold-ref { color: #4472C4; font-weight: 600; }
 
     /* ── 버튼 ── */
     .btn {
@@ -195,7 +215,7 @@
     <div class="legend-title">
       색상 조건
       <span class="legend-hint">스와치 클릭 시 색상 변경 가능</span>
-      <button class="btn-reset-colors" id="resetColorsBtn">초기화</button>
+      <button class="btn-reset-colors" id="resetColorsBtn">색상·기준 초기화</button>
     </div>
     <div class="legend-grid">
       <div class="legend-item">
@@ -206,27 +226,27 @@
       <div class="legend-item">
         <div class="swatch" data-key="darkerYellow" style="background:#F1C232" title="클릭하여 색상 변경"></div>
         <input type="color" class="color-picker" data-key="darkerYellow" value="#F1C232">
-        더진한노랑 — LG&lt;13.25
+        더진한노랑 — LG&lt;<input type="number" class="threshold-input" data-key="t1" value="13.25" min="0" max="100" step="0.25" title="기준값 변경">
       </div>
       <div class="legend-item">
         <div class="swatch" data-key="darkYellow" style="background:#FFD966" title="클릭하여 색상 변경"></div>
         <input type="color" class="color-picker" data-key="darkYellow" value="#FFD966">
-        진한노랑 — 13.25≤LG&lt;25.5
+        진한노랑 — <span class="threshold-ref" data-ref="t1">13.25</span>≤LG&lt;<input type="number" class="threshold-input" data-key="t2" value="25.5" min="0" max="100" step="0.25" title="기준값 변경">
       </div>
       <div class="legend-item">
         <div class="swatch" data-key="yellow" style="background:#FFE599" title="클릭하여 색상 변경"></div>
         <input type="color" class="color-picker" data-key="yellow" value="#FFE599">
-        노랑 — 25.5≤LG&lt;37.75
+        노랑 — <span class="threshold-ref" data-ref="t2">25.5</span>≤LG&lt;<input type="number" class="threshold-input" data-key="t3" value="37.75" min="0" max="100" step="0.25" title="기준값 변경">
       </div>
       <div class="legend-item">
         <div class="swatch" data-key="lightYellow" style="background:#FFF2CC" title="클릭하여 색상 변경"></div>
         <input type="color" class="color-picker" data-key="lightYellow" value="#FFF2CC">
-        연한노랑 — 37.75≤LG&lt;50
+        연한노랑 — <span class="threshold-ref" data-ref="t3">37.75</span>≤LG&lt;<input type="number" class="threshold-input" data-key="t4" value="50" min="0" max="100" step="0.25" title="기준값 변경">
       </div>
       <div class="legend-item">
         <div class="swatch" data-key="lighterYellow" style="background:#FFFDE8" title="클릭하여 색상 변경"></div>
         <input type="color" class="color-picker" data-key="lighterYellow" value="#FFFDE8">
-        더연한노랑 — LG≥50
+        더연한노랑 — LG≥<span class="threshold-ref" data-ref="t4">50</span>
       </div>
       <div class="legend-item">
         <div class="swatch" data-key="green" style="background:#D9EAD3" title="클릭하여 색상 변경"></div>
@@ -281,12 +301,38 @@
     });
   });
 
+  // ── 커스텀 기준값 관리 ───────────────────────────────────────────────────
+  const DEFAULT_THRESHOLDS = { t1: 13.25, t2: 25.5, t3: 37.75, t4: 50 };
+  const currentThresholds  = { ...DEFAULT_THRESHOLDS };
+
+  document.querySelectorAll('.threshold-input').forEach(input => {
+    input.addEventListener('change', () => {
+      const key = input.dataset.key;
+      const val = parseFloat(input.value);
+      if (isNaN(val)) { input.value = currentThresholds[key]; return; }
+      currentThresholds[key] = val;
+      document.querySelectorAll(`.threshold-ref[data-ref="${key}"]`).forEach(span => {
+        span.textContent = val;
+      });
+    });
+  });
+
   document.getElementById('resetColorsBtn').addEventListener('click', () => {
+    // 색상 초기화
     Object.assign(currentColors, DEFAULT_COLORS);
     document.querySelectorAll('.swatch[data-key]').forEach(swatch => {
       const key = swatch.dataset.key;
       swatch.style.background = DEFAULT_COLORS[key];
       document.querySelector(`.color-picker[data-key="${key}"]`).value = DEFAULT_COLORS[key];
+    });
+    // 기준값 초기화
+    Object.assign(currentThresholds, DEFAULT_THRESHOLDS);
+    document.querySelectorAll('.threshold-input').forEach(input => {
+      const key = input.dataset.key;
+      input.value = DEFAULT_THRESHOLDS[key];
+    });
+    document.querySelectorAll('.threshold-ref').forEach(span => {
+      span.textContent = DEFAULT_THRESHOLDS[span.dataset.ref];
     });
   });
 
@@ -327,6 +373,7 @@
       const fd = new FormData();
       fd.append('file', selectedFile);
       fd.append('colors', JSON.stringify(currentColors));
+      fd.append('thresholds', JSON.stringify(currentThresholds));
 
       const resp = await fetch('/process', { method: 'POST', body: fd });
 
