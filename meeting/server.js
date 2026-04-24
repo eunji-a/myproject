@@ -22,7 +22,7 @@ const DEFAULT_C = {
   white:         'FFFFFFFF',  // 흰색           : 값 없음
 };
 
-const DEFAULT_T = { t1: 13.25, t2: 25.5, t3: 37.75, t4: 50 };
+const DEFAULT_T = { t1: 13.25, t2: 25.5, t3: 37.75, t4: 50, r: 0, g: 100 };
 
 function hexToArgb(hex) {
   return 'FF' + hex.replace('#', '').toUpperCase();
@@ -35,9 +35,9 @@ function getColor(lg, comp, C, T) {
   lg   = Number(lg)   || 0;
   comp = Number(comp) || 0;
 
-  if (lg === 0 && comp === 0) return C.gray;
-  if (lg === 0 && comp  >  0) return C.red;
-  if (lg >= comp)             return C.green;
+  if (lg === 0 && comp === 0)        return C.gray;
+  if (lg >= comp * (T.g / 100))     return C.green;  // 초록 먼저 (LG가 경쟁사 g% 이상)
+  if (lg <= T.r  && comp > 0)       return C.red;    // 빨강 (LG≤r이고 경쟁사 존재)
 
   // LG < 경쟁사 구간별
   if (lg < T.t1) return C.darkerYellow;
